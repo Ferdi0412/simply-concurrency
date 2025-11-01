@@ -1,4 +1,4 @@
-#include "concurrency.hpp"
+#include <simply/concurrency.h>
 #include <iostream>
 #include <string>
 

@@ -7,7 +7,7 @@ project(SimplyConcurrency
 
 add_library(Concurrency INTERFACE)
 target_include_directories(Concurrency INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
 

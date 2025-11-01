@@ -1,4 +1,4 @@
-/// concurrency.hpp
+/// concurrency.h
 /// Lightweight threading library with priority control (currently Windows only)
 ///
 /// Copyright (c) 2025 Ferdinand Oliver M Tonby-Strandborg
