@@ -29,9 +29,28 @@ simply::Thread t({
 
 ## Quick Start
 ### Installation
-Simply Concurrency is header-only. Download `concurrency.hpp` and include it:
+Simply Concurrency is header-only. Download `concurrency.h` and include it:
 ```c++
-#include "concurrency.hpp"
+#include "concurrency.h"
+```
+
+Alternatively if using **CMake**, **FetchContent** can be used. **CMakeLists.txt:**
+```txt
+FetchContent_Declare(
+    SimplyCOncurrency
+    GIT_REPOSITORY https://github.com/Ferdi0412/simply-concurrency.git
+    GIT_TAG main
+)
+
+FetchContent_MakeAvailable(SimplyConcurrency)
+
+add_executable(main main.cpp)
+target_link_libraries(my_program PRIVATE simply::Concurrency)
+```
+
+**main.cpp:**
+```c++
+#include <simply/concurrency.h>
 ```
 
 ### Compilation
@@ -43,7 +62,7 @@ cl /std:c++17 program.cpp
 
 ### Basic Usage
 ```c++
-#include "concurrency.hpp"
+#include "concurrency.h"
 #include <iostream>
 
 void print_msg(std::string msg) {
@@ -64,7 +83,12 @@ int main() {
 
 ### Comparison with Standard Library
 ```c++
-#include "concurrency.hpp"
+// If file downloaded directly:
+#include "concurrency.h"
+
+// If using FetchContent
+#include <simply/concurrency.h>
+
 #include <thread>
 #include <chrono>
 #include <iostream>
