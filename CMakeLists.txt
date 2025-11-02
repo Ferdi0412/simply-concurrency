@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12) 
+cmake_minimum_required(VERSION 3.14) 
 project(SimplyConcurrency
     VERSION 0.0.0
     DESCRIPTION "Cross-platform threading"
@@ -24,4 +24,10 @@ option(SIMPLY_BUILD_EXAMPLES "Build examples" ${PROJECT_IS_TOP_LEVEL})
 
 if(SIMPLY_BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif()
+
+option(SIMPLY_BUILD_TESTS "Build tests" ${PROJECT_IS_TOP_LEVEL})
+
+if(SIMPLY_BUILD_TESTS)
+    add_subdirectory(tests)
 endif()
