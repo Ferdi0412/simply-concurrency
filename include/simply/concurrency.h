@@ -212,6 +212,10 @@ public:
     /// Get a unique identifier for the thread
     SIMPLY_NODISCARD id get_id() const noexcept;
 
+    ///   get_priority
+    /// Get the priority of the thread this represents
+    SIMPLY_NODISCARD Priority get_priority() const noexcept;
+
     ///   native_handle {dangerous}
     /// Get the native handle for the thread, for manual control
     ///
@@ -270,6 +274,10 @@ namespace this_thread {
     ///   get_id
     /// Get a unique identifier for the current thread of execution
     Thread::id get_id() noexcept;
+
+    ///   get_priority
+    /// Get the priority of the current thread
+    Thread::Priority get_priority() noexcept;
 
     ///   yield
     /// Yield to another thread of execution
@@ -367,10 +375,35 @@ Thread::id::id() noexcept: _id(GetCurrentThreadId()) {}
 Thread::id::id(DWORD i) noexcept: _id(i) {}
 
 // =====================================================================
+// Thread & this_thread >> System-priority
+// =====================================================================
+inline Thread::Priority _priority(HANDLE handle) noexcept {
+    int priority = GetThreadPriority(handle);
+
+    // NOTE - there exist less well-defined priorities 
+    //        for "REAL-TIME PROCESSES" on windows
+    if ( priority < THREAD_PRIORITY_BELOW_NORMAL )
+        return Thread::Priority::LOWEST;
+    else if ( priority == THREAD_PRIORITY_BELOW_NORMAL )
+        return Thread::Priority::LOW;
+    else if ( priority == THREAD_PRIORITY_NORMAL )
+        return Thread::Priority::NORMAL;
+    else if ( priority == THREAD_PRIORITY_ABOVE_NORMAL )
+        return Thread::Priority::HIGH;
+    else if ( priority >= THREAD_PRIORITY_TIME_CRITICAL )
+        return Thread::Priority::TIME_CRITICAL;
+    else
+        return Thread::Priority::HIGHEST;
+}
+
+// =====================================================================
 // this_thread >> Implementations
 // =====================================================================
 Thread::id this_thread::get_id() noexcept 
     { return Thread::id(); }
+
+Thread::Priority this_thread::get_priority() noexcept 
+    { return _priority(GetCurrentThread()); }
 
 void this_thread::yield() noexcept 
     { SwitchToThread(); }
@@ -610,6 +643,15 @@ Thread::id Thread::get_id() const noexcept {
     if ( _handle != nullptr )
         return id(_thread_id(_handle));
     return id();
+}
+
+// NOTE - If _handle != nullptr, AND !joinable(),
+//        then it must mean Thread::get_id() == this_thread::get_id(),
+//        in which case _handle == GetCurrentThread()
+Thread::Priority Thread::get_priority() const noexcept {
+    if ( _handle != nullptr )
+        return _priority(_handle);
+    return _priority(GetCurrentThread());
 }
 
 void Thread::join() {
