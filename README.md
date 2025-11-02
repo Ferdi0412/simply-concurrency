@@ -304,10 +304,10 @@ Thread::Priority::TIME_CRITICAL
 
 ## Roadmap
 - [ ] Linux support (pthread implementations)
-- [ ] `std::stop_token` integration for C++20 (like in `std::jthread`)
+- [x] `std::stop_token` integration for C++20 (like in `std::jthread`)
 - [ ] `simply::FutureThread` (inspired in part by `std::async`)
 - [ ] If feedback suggests it, or I need it: CPU affinity and stack size control
-- [ ] GitHub CI/CD workflows 
+- [x] GitHub CI/CD workflows 
 
 ## Issues
 Please report issues on the [GitHub Issues](https://github.com/Ferdi0412/simply-concurrency/issues) page.
