@@ -56,13 +56,21 @@
 #ifndef SIMPLY_CONCURRENCY_HPP_
 #define SIMPLY_CONCURRENCY_HPP_
 
-// Require C++ 17+
-#if __cplusplus < 201703L // C++ < 17
-    #error "Only available for C++ >= 17 due to std::optional and std::apply"
+#ifdef _MSVC_LANG
+    #define SIMPLY_UNSUITABLE _MSVC_LANG < 201703L
+    #define SIMPLY_C20plus _MSVC_LANG >= 202002L
+#else
+    #define SIMPLY_UNSUITABLE __cplusplus < 201703L
+    #define SIMPLY_C20plus __cplusplus >= 202002L
 #endif
 
 #ifndef SIMPLY_NODISCARD
-#define SIMPLY_NODISCARD [[nodiscard]] // For C++ 17+
+    #define SIMPLY_NODISCARD [[nodiscard]] // For C++ 17+
+#endif
+
+// Require C++ 17+
+#if SIMPLY_UNSUITABLE
+    #error "Only available for C++ >= 17 due to std::optional and std::apply"
 #endif
 
 // Require Windows
@@ -76,6 +84,10 @@
 #include <memory>
 #include <functional>
 #include <system_error>
+
+#if SIMPLY_C20plus
+    #include <stop_token>
+#endif
 
 #include <windows.h>
 
@@ -335,7 +347,7 @@ public:
     friend bool operator==(id lhs, id rhs) noexcept;
 
 
-#if __cplusplus >= 202002L 
+#if SIMPLY_C20plus
     /// As of C++ 20, this is the preferred implementation of comparisons
     friend std::strong_ordering operator<=>(id lhs, id rhs) noexcept;
 
@@ -409,7 +421,14 @@ void this_thread::yield() noexcept
     { SwitchToThread(); }
     
 void this_thread::sleep(size_t ms_sleep) 
-    { Sleep(ms_sleep); }
+    { 
+        if ( ms_sleep > static_cast<size_t>(MAXDWORD) )
+        throw std::system_error(
+            std::make_error_code(std::errc::invalid_argument),
+            "sleep duration exceeds maximum DWORD value"
+        );
+        Sleep(ms_sleep);
+    }
 
 // =====================================================================
 // Thread::id >> Implementations 
@@ -422,7 +441,7 @@ size_t Thread::id::hash_value() const noexcept {
 inline bool operator==(Thread::id lhs, Thread::id rhs) noexcept 
     { return lhs._id == rhs._id; }
 
-#if __cplusplus >= 202002L // C++ >= 20
+#if SIMPLY_C20plus // C++ >= 20
 inline std::strong_ordering operator<=>(Thread::id lhs, Thread::id rhs) noexcept
     { return lhs._id <=> rhs._id; }
 
@@ -563,6 +582,11 @@ void _start(HANDLE& handle, const Thread::Options& opt, F&& f, Args&&... args) {
 }
 
 inline bool _join(HANDLE& handle, size_t ms_timeout) {
+    if ( ms_timeout > static_cast<size_t>(MAXDWORD) )
+        throw std::system_error(
+            std::make_error_code(std::errc::invalid_argument),
+            "sleep duration exceeds maximum DWORD value"
+        );
     switch ( WaitForSingleObject(handle, ms_timeout) ) {
         case WAIT_OBJECT_0:
             CloseHandle(handle);
