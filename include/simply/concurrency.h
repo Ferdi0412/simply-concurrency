@@ -81,6 +81,8 @@
 #include <string>
 #include <optional>
 #include <algorithm>
+#include <tuple>
+#include <utility>
 #include <memory>
 #include <functional>
 #include <system_error>
@@ -265,8 +267,28 @@ public:
     /// Detach thread so its execution is independent and uncontrolled
     void detach();
 
+#if SIMPLY_C20plus
+    ///   get_stop_source {condition: C++ >= 20}
+    /// Get a copy of the stop source given to the thread
+    SIMPLY_NODISCARD std::stop_source get_stop_source() noexcept;
+
+    ///   get_stop_token
+    /// Get a copy of the stop token receiving stop requests
+    SIMPLY_NODISCARD std::stop_token get_stop_token() const noexcept;
+
+    ///   request_stop
+    /// Requests a stop
+    /// Returns `true` if this is the first request on the associated token
+    /// Does not check whether the thread is actually using said token
+    SIMPLY_NODISCARD bool request_stop() noexcept;
+#endif
+
 private:
     native_handle_type _handle;
+
+#if SIMPLY_C20plus
+    std::stop_source _source;
+#endif
 };
 }
 
@@ -507,6 +529,37 @@ inline void _cleanup_suspended(HANDLE& handle) noexcept {
 }
 
 // Use a handle in case of error after thread completed...
+#if SIMPLY_C20plus
+template <class F, class... Args>
+void _start(HANDLE& handle, std::stop_source& source, const Thread::Options& opt, F&& f, Args&&... args) {
+    // Reset token
+    source = std::stop_source();
+
+    constexpr bool takes_stop_token = std::is_invocable_v<F, std::stop_token, Args...>;
+
+    using T = std::conditional_t<
+        takes_stop_token,
+        std::tuple<std::decay_t<F>, std::stop_token, std::decay_t<Args>...>,
+        std::tuple<std::decay_t<F>, std::decay_t<Args>...>
+    >;
+
+    std::unique_ptr<T> data_copy;
+
+    if constexpr (takes_stop_token) {
+        static_assert(std::is_invocable_v<F, std::stop_token, Args...>,
+            "Function taking stop_token must still be invocable with rest of params.");
+        data_copy = std::make_unique<T>(std::forward<F>(f),
+                                        std::forward<std::stop_token>(source.get_token()),
+                                        std::forward<Args>(args)...);
+    }
+    else {
+        static_assert(std::is_invocable_v<F, Args...>, "Ensure function signature and args match!");
+        data_copy = std::make_unique<T>(std::forward<F>(f), std::forward<Args>(args)...);
+    }
+
+    constexpr auto invoker = _invoke_gen<T>(std::make_index_sequence<std::tuple_size_v<T>>{});
+
+#else
 template <class F, class... Args>
 void _start(HANDLE& handle, const Thread::Options& opt, F&& f, Args&&... args) {
     using T = std::tuple<std::decay_t<F>, std::decay_t<Args>...>;
@@ -517,6 +570,7 @@ void _start(HANDLE& handle, const Thread::Options& opt, F&& f, Args&&... args) {
 
     constexpr auto invoker = _invoke_gen<T>(std::make_index_sequence<1+sizeof...(Args)>{});
 
+#endif
     DWORD creation_flag = opt.priority.has_value() ? CREATE_SUSPENDED : 0;
     
     // Microsoft recommends _beginthreadex over CreateThread for C/C++ programs
@@ -629,6 +683,9 @@ inline unsigned int _hardware_concurrency() noexcept {
 Thread::Thread() noexcept: _handle(nullptr) {}
 
 Thread::~Thread() {
+#if SIMPLY_C20plus
+    _source.request_stop();
+#endif
     if (joinable()) {
         _force_join(_handle);
     }
@@ -636,27 +693,44 @@ Thread::~Thread() {
 }
 Thread::Thread(Thread&& other) noexcept: Thread() { 
     std::swap(_handle, other._handle);
+#if SIMPLY_C20plus
+    std::swap(_source, other._source);
+#endif
 }
 
 Thread& Thread::operator=(Thread&& other) { 
     if (joinable()) 
         join();
     std::swap(_handle, other._handle);
+#if SIMPLY_C20plus
+    std::swap(_source, other._source);
+#endif
     return *this;
 }
 
 void Thread::swap(Thread& other) noexcept {
     std::swap(_handle, other._handle);
+#if SIMPLY_C20plus
+    std::swap(_source, other._source);
+#endif
 }
 
 template <class F, class... Args>
 Thread::Thread(F&& f, Args&&... args): Thread() {
+#if SIMPLY_C20plus
+    _start(_handle, _source, {}, std::forward<F>(f), std::forward<Args>(args)...);
+#else
     _start(_handle, {}, std::forward<F>(f), std::forward<Args>(args)...);
+#endif
 }
 
 template <class F, class... Args>
 Thread::Thread(Thread::Options opt, F&& f, Args&&... args): Thread() {
+#if SIMPLY_C20plus
+    _start(_handle, _source, opt, std::forward<F>(f), std::forward<Args>(args)...);
+#else
     _start(_handle, opt, std::forward<F>(f), std::forward<Args>(args)...);
+#endif
 }
 
 bool Thread::joinable() const noexcept {
@@ -684,6 +758,9 @@ void Thread::join() {
             std::make_error_code(std::errc::invalid_argument),
             "Thread::join: thread not joinable"
         );
+#if SIMPLY_C20plus
+    _source.request_stop();
+#endif
     _join(_handle, INFINITE);
 }
 
@@ -693,6 +770,9 @@ bool Thread::join(size_t ms_timeout) {
             std::make_error_code(std::errc::invalid_argument),
             "Thread::join: thread not joinable"
         );
+#if SIMPLY_C20plus
+    _source.request_stop();
+#endif
     return _join(_handle, ms_timeout);
 }
 
@@ -717,6 +797,21 @@ Thread::native_handle_type Thread::native_handle() {
 unsigned int Thread::hardware_concurrency() noexcept { 
     return _hardware_concurrency();
 }
+
+#if SIMPLY_C20plus
+std::stop_source Thread::get_stop_source() noexcept {
+    return _source;
+}
+
+std::stop_token Thread::get_stop_token() const noexcept {
+    return _source.get_token();
+}
+
+bool Thread::request_stop() noexcept {
+    return _source.request_stop();
+}
+
+#endif
 }
 
 namespace std {
