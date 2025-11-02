@@ -94,14 +94,14 @@ TEST(ThreadBasics, ThreadExecution) {
 }
 
 TEST(ThreadBasics, SetPriority) {
-    simply::Thread t1({
-        .priority = simply::Thread::Priority::HIGH
-    }, [](){});
+    simply::Thread::Options opt;
+
+    opt.priority = simply::Thread::Priority::HIGH;
+    simply::Thread t1(opt, [](){});
     ASSERT_EQ(t1.get_priority(), simply::Thread::Priority::HIGH);
 
-    simply::Thread t2({
-        .priority = simply::Thread::Priority::LOW
-    }, []() {
+    opt.priority = simply::Thread::Priority::LOW;
+    simply::Thread t2(opt, []() {
         ASSERT_EQ(simply::this_thread::get_priority(), simply::Thread::Priority::LOW);
     });
 
@@ -117,9 +117,8 @@ TEST(ThreadBasics, SetPriority) {
     for ( auto priority: priorities ) {
         bool executed = false;
 
-        simply::Thread t({
-            .priority = priority
-        }, [&executed, priority](){
+        opt.priority = priority;
+        simply::Thread t(opt, [&executed, priority](){
             executed = true;
             ASSERT_EQ(simply::this_thread::get_priority(), priority);
         });
