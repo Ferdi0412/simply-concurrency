@@ -1,0 +1,60 @@
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+    test:
+        runs-on: windows-latest
+        strategy:
+            fail-fast: true
+            matrix:
+                compiler: [msvc, clang, mingw]
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup Clang
+              if: matrix.compiler == 'clang'
+              run: choco install llvm -y
+
+            - name: Setup MinGW
+              if: matrix.compiler == 'mingw'
+              uses: msys2/setup-msys2@v2
+              with:
+                msystem: MINGW64
+                update: true
+                install: >-
+                    mingw-w64-x86_64-gcc
+                    mingw-w64-x86_64-cmake
+                    mingw-w64-x86_64-make
+
+            - name: Configure (MSVC)
+              if: matrix.compiler == 'msvc'
+              run: cmake -B build -S . -DSIMPLY_BUILD_EXAMPLES=OFF
+            
+            - name: Configure (Clang)
+              if: matrix.compiler == 'clang'
+              run: cmake -B build -S . -DSIMPLY_BUILD_EXAMPLES=OFF -DCMAKE_CXX_COMPILER=clang++
+
+            - name: Configure (MinGW)
+              if: matrix.compiler == 'mingw'
+              shell: msys2 {0}
+              run: cmake -B build -S . -DSIMPLY_BUILD_EXAMPLES=OFF -G "MinGW Makefiles"
+
+            - name: Build (MSVC/Clang)
+              if: matrix.compiler != 'mingw'
+              run: cmake --build build --config Release
+
+            - name: Build (MinGW)
+              if: matrix.compiler == 'mingw'
+              shell: msys2 {0}
+              run: cmake --build build
+            
+            - name: Test (MSVC/Clang)
+              if: matrix.compiler != 'mingw'
+              run: ctest --test-dir build/tests -C Release --output-on-failure
+            
+            - name: Test (MinGW)
+              if: matrix.compiler == 'mingw'
+              shell: msys2 {0}
+              run: ctest --test-dir build/tests --output-on-failure
