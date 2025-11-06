@@ -1,3 +1,5 @@
+> This is moving to `simply-threading`
+
 # Simply Concurrency
 [![C++17](https://img.shields.io/badge/C++-17-blue.svg)](https://en.wikipedia.org/wiki/C%2B%2B17)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)](https://docs.microsoft.com/en-us/windows/)
